@@ -362,4 +362,3 @@ KEAVEX is not:
 KEAVEX is:
 An evidence-based capability assessment system that uses AI reasoning to determine what current evidence supports, identify what remains unknown, and guide the collection of stronger evidence.
 ```
-
