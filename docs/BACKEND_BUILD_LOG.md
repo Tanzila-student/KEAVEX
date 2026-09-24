@@ -1,4 +1,4 @@
-# KEAVEX Backend — Engineering Build Log
+# KEAVEX Backend - Engineering Build Log
 
 > A chronological record of the backend development process from initial architecture to a stable, demo-ready, frozen API.
 
@@ -102,7 +102,11 @@ The backend was built around the following components:
 
 ---
 
-# 5. High-Level Architecture
+# 5. Architecture
+
+## Database Architecture
+
+![KEAVEX Database Architecture](./database-architecture.jpeg)
 
 The backend eventually evolved into the following architecture:
 
@@ -145,7 +149,7 @@ It was developed incrementally over nine days.
 
 ---
 
-# Day 1 — Backend Foundation
+# Day 1 - Backend Foundation
 
 ## Objective
 
@@ -241,7 +245,7 @@ The next stage was to design the database capable of storing the resulting evide
 
 ---
 
-# Day 2 — Database Foundation
+# Day 2 - Database Foundation
 
 ## Objective
 
@@ -437,7 +441,7 @@ The next requirement was to obtain reliable text from uploaded resumes.
 
 ---
 
-# Day 3 — PDF Processing
+# Day 3 - PDF Processing
 
 ## Objective
 
@@ -570,7 +574,7 @@ The next stage was to connect that text to Gemini.
 
 ---
 
-# Day 4 — Gemini Integration
+# Day 4 - Gemini Integration
 
 ## Objective
 
@@ -701,7 +705,7 @@ The next stage was persistence.
 
 ---
 
-# Day 5 — Database Persistence
+# Day 5 - Database Persistence
 
 ## Objective
 
@@ -803,7 +807,7 @@ The next stage expanded this into the full evidence architecture.
 
 ---
 
-# Day 6 — Evidence Architecture
+# Day 6 - Evidence Architecture
 
 ## Objective
 
@@ -983,7 +987,7 @@ Evidence Gaps
 
 ---
 
-# Day 7 — Dynamic Analyze API
+# Day 7 - Dynamic Analyze API
 
 ## Objective
 
@@ -1165,7 +1169,7 @@ and producing a complete structured assessment.
 
 ---
 
-# Day 8 — Evidence Reassessment
+# Day 8 - Evidence Reassessment
 
 ## Objective
 
@@ -1453,7 +1457,7 @@ This became one of the core backend workflows for the product.
 
 ---
 
-# Day 9 — Stabilization and Backend Freeze
+# Day 9 - Stabilization and Backend Freeze
 
 ## Objective
 
