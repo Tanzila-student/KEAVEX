@@ -1,98 +1,131 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { router } from 'expo-router';
+import { colors } from '../../constants/colors';
+import { typography } from '../../constants/typography';
+import { StatusBadge } from '../../components/StatusBadge';
+import { supabase } from '../../lib/supabase';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+export default function WelcomeScreen() {
+  async function handleSignOut() {
+    const { error } = await supabase.auth.signOut();
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
+    if (error) {
+      console.error('SIGN_OUT_ERROR', error);
+      return;
+    }
+
+    router.replace('/login');
   }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+    <View style={styles.container}>
+      <View style={styles.content}>
+        <Text style={styles.brand}>KEAVEX</Text>
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+        <Text style={styles.title}>
+          Know what your evidence actually supports.
+        </Text>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+        <Text style={styles.subtitle}>
+          KEAVEX evaluates your capability claims using evidence,
+          identifies what is missing, and shows what you can prove next.
+        </Text>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+        <View style={styles.statusRow}>
+          <StatusBadge status="strong" />
+          <StatusBadge status="developing" />
+          <StatusBadge status="insufficient" />
+        </View>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+        <Pressable
+          style={styles.button}
+          onPress={() => router.push('/upload')}
+        >
+          <Text style={styles.buttonText}>Get started</Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.signOutButton}
+          onPress={handleSignOut}
+        >
+          <Text style={styles.signOutText}>Sign out</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
     justifyContent: 'center',
-    flexDirection: 'row',
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+
+  content: {
+    width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
+    paddingHorizontal: 28,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+
+  brand: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginBottom: 24,
   },
+
   title: {
-    textAlign: 'center',
+    ...typography.title,
+    color: colors.textPrimary,
+    fontSize: 40,
+    lineHeight: 48,
+    maxWidth: 680,
+    marginBottom: 18,
   },
-  code: {
-    textTransform: 'uppercase',
+
+  subtitle: {
+    ...typography.body,
+    color: colors.textSecondary,
+    fontSize: 17,
+    lineHeight: 27,
+    maxWidth: 620,
+    marginBottom: 28,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+
+  statusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 32,
+  },
+
+  button: {
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 22,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+  },
+
+  buttonText: {
+    color: colors.surface,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+
+  signOutButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    alignSelf: 'flex-start',
+  },
+
+  signOutText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
