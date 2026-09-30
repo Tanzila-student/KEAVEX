@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import {
   ScrollView,
   View,
@@ -12,6 +12,10 @@ import { router } from 'expo-router';
 import { colors } from '../../constants/colors';
 import { typography } from '../../constants/typography';
 import { supabase } from '../../lib/supabase';
+import { isPro } from '../lib/purchases';
+
+// Free users get this many reassessments before the paywall
+const FREE_LIMIT = 1;
 
 const ANALYSIS_ID = '7799c856-8429-4e5a-b357-75c5d666d683';
 const DOCKER_CAPABILITY_ID = 'cdecbfdb-c4ca-467e-9267-dff5f68ce993';
@@ -45,6 +49,15 @@ export default function DemonstrateScreen() {
         throw new Error('Not signed in. Open /login and sign in first.');
       }
 
+      // REVENUECAT INTEGRATION: check Pro entitlement before AI reassessment
+      const used = Number(session.user.user_metadata?.free_reassessments_used ?? 0);
+      const pro = await isPro().catch(() => false);
+
+      if (!pro && used >= FREE_LIMIT) {
+        router.push('/paywall');
+        return;
+      }
+
       const { data, error: functionError } =
         await supabase.functions.invoke('reassess-evidence', {
           body: {
@@ -74,10 +87,16 @@ export default function DemonstrateScreen() {
             : JSON.stringify(data.error);
 
         const extra = data.details
-          ? ` — ${JSON.stringify(data.details)}`
+          ? ` - ${JSON.stringify(data.details)}`
           : '';
 
         throw new Error(`${detail}${extra}`);
+      }
+
+      if (!pro) {
+        await supabase.auth.updateUser({
+          data: { free_reassessments_used: used + 1 },
+        });
       }
 
       router.push({
@@ -107,7 +126,7 @@ export default function DemonstrateScreen() {
       contentContainerStyle={styles.content}
     >
       <Pressable onPress={() => router.back()} disabled={isSubmitting}>
-        <Text style={styles.back}>← Evidence Map</Text>
+        <Text style={styles.back}>Back Evidence Map</Text>
       </Pressable>
 
       <Text style={styles.eyebrow}>NEW EVIDENCE</Text>
@@ -144,7 +163,7 @@ export default function DemonstrateScreen() {
       />
 
       <Text style={styles.helper}>
-        KEAVEX evaluates the evidence itself—not your writing length.
+        KEAVEX evaluates the evidence itself - not your writing length.
       </Text>
 
       {error ? (
@@ -165,7 +184,7 @@ export default function DemonstrateScreen() {
           <ActivityIndicator color={colors.surface} />
         ) : (
           <Text style={styles.submitText}>
-            Submit evidence →
+            Submit evidence Back’
           </Text>
         )}
       </Pressable>
@@ -311,3 +330,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+

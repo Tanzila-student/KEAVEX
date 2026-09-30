@@ -1,14 +1,21 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Stack } from 'expo-router';
 import type { Session } from '@supabase/supabase-js';
 
 import { supabase } from '../../lib/supabase';
 import { colors } from '../../constants/colors';
+import { initPurchases } from '../lib/purchases';
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    initPurchases().catch((e) =>
+      console.warn('RevenueCat init failed', e),
+    );
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -75,6 +82,7 @@ export default function RootLayout() {
         <Stack.Screen name="processing" />
         <Stack.Screen name="reassessment" />
         <Stack.Screen name="upload" />
+        <Stack.Screen name="paywall" />
       </Stack.Protected>
     </Stack>
   );
