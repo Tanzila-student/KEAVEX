@@ -1,135 +1,143 @@
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { StatusBadge } from '../../components/StatusBadge';
 import { colors } from '../../constants/colors';
 import { typography } from '../../constants/typography';
 import { mockAnalysis } from '../constants/mockAnalysis';
 
-
 type Capability = (typeof mockAnalysis.capabilities)[number];
-type EvidenceItem = Capability['supportedBy'][number];
+
+const LIVE_DOCKER_STATUS = 'developing' as const;
 
 export default function EvidenceMapScreen() {
+  const capabilities: Capability[] =
+    mockAnalysis.capabilities.map((capability) => {
+      if (capability.name === 'Containerization (Docker)') {
+        return {
+          ...capability,
+          status: LIVE_DOCKER_STATUS,
+        };
+      }
+
+      return capability;
+    });
+
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.eyebrow}>KEAVEX</Text>
+      {/* HEADER */}
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>KEAVEX</Text>
 
-      <Text style={styles.title}>Evidence Map</Text>
+        <Text style={styles.title}>Evidence Map</Text>
 
-      <View style={styles.overview}>
+        <Text style={styles.subtitle}>
+          What your current evidence supports.
+        </Text>
+      </View>
+
+      {/* CURRENT READINESS */}
+      <View style={styles.overviewCard}>
         <Text style={styles.overviewLabel}>
+          CURRENT READINESS
+        </Text>
+
+        <Text style={styles.overviewTitle}>
           What we can defend today
         </Text>
 
-        <StatusBadge status={mockAnalysis.overall_status} />
+        <View style={styles.overviewStatus}>
+          <StatusBadge status={mockAnalysis.overall_status} />
+        </View>
 
-        <Text style={styles.summary}>
+        <Text style={styles.overviewText}>
           {mockAnalysis.summary}
         </Text>
-
-        <Text style={styles.boundary}>
-          This is not a skill score. It is an evidence boundary.
-        </Text>
       </View>
 
+      {/* CAPABILITIES */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>
-          Where the evidence stands
+          Capabilities
         </Text>
 
-        <Text style={styles.sectionDescription}>
-          Each capability shows what your current evidence supports,
-          where the claim breaks, and what could strengthen it.
+        <Text style={styles.sectionMeta}>
+          {capabilities.length} areas assessed
         </Text>
       </View>
 
-      <View style={styles.cards}>
-        {mockAnalysis.capabilities.map(
-          (capability: Capability) => (
-            <View
-              style={styles.card}
-              key={capability.name}
-            >
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>
-                  {capability.name}
+      <View style={styles.capabilityList}>
+        {capabilities.map((capability) => (
+          <View
+            key={capability.name}
+            style={styles.capabilityCard}
+          >
+            {/* CAPABILITY NAME */}
+            <Text style={styles.capabilityName}>
+              {capability.name}
+            </Text>
+
+            {/* STATUS BADGE */}
+            <View style={styles.capabilityStatus}>
+              <StatusBadge status={capability.status} />
+            </View>
+
+            {/* CLAIM */}
+            <Text style={styles.capabilityClaim}>
+              {capability.claim}
+            </Text>
+
+            {/* EVIDENCE GAP */}
+            <View style={styles.gapBox}>
+              <View style={styles.gapIndicator} />
+
+              <View style={styles.gapContent}>
+                <Text style={styles.gapLabel}>
+                  EVIDENCE GAP
                 </Text>
 
-                <StatusBadge status={capability.status} />
-              </View>
-
-              <View style={styles.block}>
-                <Text style={styles.blockLabel}>
-                  CLAIM
-                </Text>
-
-                <Text style={styles.claim}>
-                  {capability.claim}
-                </Text>
-              </View>
-
-              <View style={styles.block}>
-                <Text style={styles.blockLabel}>
-                  EVIDENCE SO FAR
-                </Text>
-
-                {capability.supportedBy.map(
-                  (
-                    evidence: EvidenceItem,
-                    index: number,
-                  ) => (
-                    <View
-                      key={`${evidence.source}-${index}`}
-                      style={styles.evidenceRow}
-                    >
-                      <Text style={styles.evidenceStrength}>
-                        {evidence.strength}
-                      </Text>
-
-                      <Text style={styles.evidenceSource}>
-                        {evidence.source}
-                      </Text>
-                    </View>
-                  ),
-                )}
-              </View>
-
-              <View style={styles.breakBlock}>
-                <Text style={styles.breakLabel}>
-                  WHERE IT BREAKS
-                </Text>
-
-                <Text style={styles.breakTitle}>
+                <Text style={styles.gapTitle}>
                   {capability.evidenceGap.title}
                 </Text>
-
-                <Text style={styles.breakText}>
-                  {capability.evidenceGap.description}
-                </Text>
               </View>
-
-              <Pressable
-                style={styles.proveButton}
-                onPress={() =>
-                  router.push({
-                    pathname: '/capability',
-                    params: {
-                      name: capability.name,
-                    },
-                  })
-                }
-              >
-                <Text style={styles.proveButtonText}>
-                  Prove this →
-                </Text>
-              </Pressable>
             </View>
-          ),
-        )}
+
+            {/* ACTION */}
+            <Pressable
+              style={styles.demonstrateButton}
+              onPress={() =>
+                router.push({
+                  pathname: '/demonstrate',
+                  params: {
+                    name: capability.name,
+                  },
+                })
+              }
+            >
+              <Text style={styles.demonstrateText}>
+                Demonstrate
+              </Text>
+            </Pressable>
+          </View>
+        ))}
+      </View>
+
+      {/* FOOTER */}
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>
+          Evidence is not a score. It is what the available
+          proof can currently support.
+        </Text>
       </View>
     </ScrollView>
   );
@@ -146,188 +154,211 @@ const styles = StyleSheet.create({
     maxWidth: 900,
     alignSelf: 'center',
     paddingHorizontal: 20,
-    paddingTop: 48,
-    paddingBottom: 64,
+    paddingTop: 28,
+    paddingBottom: 52,
+  },
+
+  /* HEADER */
+
+  header: {
+    marginBottom: 24,
   },
 
   eyebrow: {
+    ...typography.caption,
     color: colors.primary,
-    fontSize: 13,
     fontWeight: '700',
-    letterSpacing: 2,
+    letterSpacing: 1.4,
     marginBottom: 8,
   },
 
   title: {
     ...typography.title,
     color: colors.textPrimary,
-    fontSize: 32,
-    lineHeight: 40,
-    marginBottom: 22,
+    fontSize: 30,
+    lineHeight: 38,
+    fontWeight: '700',
+    marginBottom: 5,
   },
 
-  overview: {
+  subtitle: {
+    ...typography.body,
+    color: colors.textSecondary,
+    fontWeight: '400',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+
+  /* OVERVIEW */
+
+  overviewCard: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 16,
-    padding: 22,
-    marginBottom: 36,
+    padding: 18,
+    marginBottom: 30,
   },
 
   overviewLabel: {
-    color: colors.textPrimary,
-    fontSize: 15,
+    color: colors.textSecondary,
+    fontSize: 10,
+    lineHeight: 14,
     fontWeight: '600',
-    marginBottom: 12,
+    letterSpacing: 1.1,
+    marginBottom: 5,
   },
 
-  summary: {
-    color: colors.textSecondary,
-    fontSize: 15,
+  overviewTitle: {
+    color: colors.textPrimary,
+    fontSize: 17,
     lineHeight: 23,
-    maxWidth: 720,
-    marginTop: 14,
+    fontWeight: '600',
+    marginBottom: 9,
   },
 
-  boundary: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 12,
+  overviewStatus: {
+    alignSelf: 'flex-start',
+    marginBottom: 13,
   },
+
+  overviewText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '400',
+  },
+
+  /* SECTION */
 
   sectionHeader: {
-    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    paddingHorizontal: 1,
   },
 
   sectionTitle: {
     color: colors.textPrimary,
-    fontSize: 20,
+    fontSize: 19,
+    lineHeight: 25,
     fontWeight: '600',
-    marginBottom: 6,
   },
 
-  sectionDescription: {
+  sectionMeta: {
     color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 20,
-    maxWidth: 700,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '400',
   },
 
-  cards: {
-    gap: 16,
+  /* CAPABILITIES */
+
+  capabilityList: {
+    gap: 12,
   },
 
-  card: {
+  capabilityCard: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 14,
+    padding: 18,
   },
 
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 20,
-    width: '100%',
-  },
-
-  cardTitle: {
+  capabilityName: {
     color: colors.textPrimary,
-    fontSize: 20,
-    fontWeight: '700',
-    flexShrink: 1,
-    paddingRight: 12,
-  },
-
-  block: {
-    marginBottom: 18,
-  },
-
-  blockLabel: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    marginBottom: 7,
-  },
-
-  claim: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    lineHeight: 21,
-  },
-
-  evidenceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 7,
-    width: '100%',
-  },
-
-  evidenceStrength: {
-    color: colors.textSecondary,
-    backgroundColor: colors.background,
-    fontSize: 11,
+    fontSize: 17,
+    lineHeight: 23,
     fontWeight: '600',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 5,
-    marginRight: 8,
-    textTransform: 'lowercase',
+    marginBottom: 8,
   },
 
-  evidenceSource: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    flexShrink: 1,
+  capabilityStatus: {
+    alignSelf: 'flex-start',
+    marginBottom: 9,
   },
 
-  breakBlock: {
-    backgroundColor: colors.developingBg,
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 4,
-    marginBottom: 20,
-  },
-
-  breakLabel: {
-    color: colors.developing,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    marginBottom: 6,
-  },
-
-  breakTitle: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 20,
-    marginBottom: 5,
-  },
-
-  breakText: {
+  capabilityClaim: {
     color: colors.textSecondary,
     fontSize: 13,
-    lineHeight: 20,
+    lineHeight: 19,
+    fontWeight: '400',
+    marginBottom: 16,
   },
 
-  proveButton: {
-    backgroundColor: colors.primary,
-    width: '100%',
-    paddingVertical: 14,
-    borderRadius: 12,
+  /* EVIDENCE GAP */
+
+  gapBox: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    paddingVertical: 11,
+    paddingHorizontal: 11,
+    marginBottom: 12,
+  },
+
+  gapIndicator: {
+    width: 3,
+    backgroundColor: colors.developing,
+    borderRadius: 2,
+    marginRight: 10,
+  },
+
+  gapContent: {
+    flex: 1,
+  },
+
+  gapLabel: {
+    color: colors.textSecondary,
+    fontSize: 9,
+    lineHeight: 13,
+    fontWeight: '600',
+    letterSpacing: 0.9,
+    marginBottom: 3,
+  },
+
+  gapTitle: {
+    color: colors.textPrimary,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+
+  /* ACTION */
+
+  demonstrateButton: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  proveButtonText: {
-    color: colors.surface,
+  demonstrateText: {
+    color: colors.primary,
     fontSize: 14,
+    lineHeight: 19,
     fontWeight: '600',
+  },
+
+  /* FOOTER */
+
+  footer: {
+    paddingTop: 24,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+  },
+
+  footerText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '400',
+    textAlign: 'center',
+    maxWidth: 520,
   },
 });

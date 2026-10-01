@@ -1,374 +1,301 @@
-import { ScrollView, View, Text, StyleSheet, Pressable } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { colors } from '../../constants/colors';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+
 import { typography } from '../../constants/typography';
-import { StatusBadge } from '../../components/StatusBadge';
-import { mockAnalysis } from '../constants/mockAnalysis';
 
 type ReassessmentResult = {
   capability?: string;
-  previous_status?: 'strong' | 'developing' | 'insufficient';
-  status?: 'strong' | 'developing' | 'insufficient';
+  previous_status?: string;
+  status?: string;
   change_reason?: string;
-  new_evidence?: string;
+  new_evidence?: {
+    strength?: string;
+    detail?: string;
+  };
   convergence?: {
     status?: string;
-    summary?: string;
+    explanation?: string;
   };
 };
 
-export default function ReassessmentScreen() {
-  const { name, response, reassessment } =
-    useLocalSearchParams<{
-      name?: string;
-      response?: string;
-      reassessment?: string;
-    }>();
-
-  const capability =
-    mockAnalysis.capabilities.find((item) => item.name === name) ??
-    mockAnalysis.capabilities[0];
-
-  const submittedEvidence = response ?? '';
-
-  let result: ReassessmentResult | null = null;
-
-  try {
-    if (reassessment) {
-      result = JSON.parse(reassessment);
-    }
-  } catch {
-    result = null;
+function parseResult(value?: string): ReassessmentResult {
+  if (!value) {
+    return {};
   }
 
-  const previousStatus =
-    result?.previous_status ?? capability.status;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
+}
 
-  const newStatus =
-    result?.status ?? capability.status;
+export default function ReassessmentScreen() {
+  const { reassessment } = useLocalSearchParams<{
+    reassessment?: string;
+  }>();
+
+  const result = parseResult(reassessment);
+
+  const previousStatus =
+    result.previous_status || 'Unknown';
+
+  const currentStatus =
+    result.status || 'Unknown';
 
   const changeReason =
-    result?.change_reason ??
-    'KEAVEX could not retrieve the reassessment reasoning.';
+    result.change_reason ||
+    'The new evidence was considered, but the available evidence is not yet sufficient for a stronger conclusion.';
 
-  const convergenceSummary =
-    result?.convergence?.summary;
+  const evidenceDetail =
+    result.new_evidence?.detail ||
+    'Additional evidence is needed to strengthen the capability claim.';
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-    >
-      <Pressable onPress={() => router.back()}>
-        <Text style={styles.back}>← Demonstrate</Text>
-      </Pressable>
-
-      <Text style={styles.eyebrow}>REASSESSMENT</Text>
-
-      <Text style={styles.title}>
-        Your evidence changed the assessment
-      </Text>
-
-      <Text style={styles.subtitle}>
-        KEAVEX compared the new evidence with what was previously
-        supported.
-      </Text>
-
-      <View style={styles.capabilityHeader}>
-        <Text style={styles.capabilityName}>
-          {capability.name}
-        </Text>
-      </View>
-
-      <View style={styles.changeCard}>
-        <View style={styles.changeColumn}>
-          <Text style={styles.changeLabel}>BEFORE</Text>
-
-          <StatusBadge status={previousStatus} />
-
-          <Text style={styles.changeText}>
-            {previousStatus === 'insufficient'
-              ? 'The available evidence did not support a stronger conclusion.'
-              : previousStatus === 'developing'
-                ? 'The existing evidence supported a developing conclusion.'
-                : 'The existing evidence supported a strong conclusion.'}
-          </Text>
-        </View>
-
-        <View style={styles.arrow}>
-          <Text style={styles.arrowText}>→</Text>
-        </View>
-
-        <View style={styles.changeColumn}>
-          <Text style={styles.changeLabel}>NOW</Text>
-
-          <StatusBadge status={newStatus} />
-
-          <Text style={styles.changeText}>
-            {newStatus === 'strong'
-              ? 'The new evidence supports a stronger conclusion.'
-              : newStatus === 'developing'
-                ? 'The new evidence supports additional practical reasoning.'
-                : 'The new evidence is still insufficient for a stronger conclusion.'}
-          </Text>
-        </View>
-      </View>
-
-      <Text style={styles.sectionTitle}>
-        New evidence submitted
-      </Text>
-
-      <View style={styles.evidenceCard}>
-        <Text style={styles.evidenceText}>
-          {submittedEvidence || 'No evidence was submitted.'}
-        </Text>
-      </View>
-
-      <Text style={styles.sectionTitle}>
-        Why the conclusion changed
-      </Text>
-
-      <View style={styles.reasonCard}>
-        <Text style={styles.reasonTitle}>
-          {newStatus === previousStatus
-            ? 'Assessment maintained'
-            : 'Assessment updated'}
-        </Text>
-
-        <Text style={styles.reasonText}>
-          {changeReason}
-        </Text>
-      </View>
-
-      {convergenceSummary ? (
-        <>
-          <Text style={styles.sectionTitle}>
-            Evidence convergence
+    <View style={styles.container}>
+      <View style={styles.content}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.eyebrow}>
+            EVIDENCE RE-CHECKED
           </Text>
 
-          <View style={styles.convergenceCard}>
-            <Text style={styles.convergenceText}>
-              {convergenceSummary}
+          <Text style={styles.title}>
+            Your evidence has been reassessed.
+          </Text>
+
+          {result.capability ? (
+            <Text style={styles.capability}>
+              {result.capability}
+            </Text>
+          ) : null}
+        </View>
+
+        {/* Result */}
+        <View style={styles.resultCard}>
+          <View style={styles.resultColumn}>
+            <Text style={styles.resultLabel}>
+              BEFORE
+            </Text>
+
+            <Text style={styles.resultValue}>
+              {previousStatus}
             </Text>
           </View>
-        </>
-      ) : null}
 
-      <View style={styles.boundaryCard}>
-        <Text style={styles.boundaryLabel}>
-          WHAT THIS DOES NOT MEAN
-        </Text>
+          <View style={styles.resultDivider} />
 
-        <Text style={styles.boundaryText}>
-          A stronger assessment does not mean every capability
-          is proven. It means the available evidence now supports
-          a narrower conclusion than before.
-        </Text>
+          <View style={styles.resultColumn}>
+            <Text style={styles.resultLabel}>
+              NOW
+            </Text>
+
+            <Text style={styles.resultValue}>
+              {currentStatus}
+            </Text>
+          </View>
+        </View>
+
+        {/* Decision rationale */}
+        <View style={styles.rationaleCard}>
+          <Text style={styles.rationaleLabel}>
+            DECISION RATIONALE
+          </Text>
+
+          <Text style={styles.rationaleText}>
+            {changeReason}
+          </Text>
+
+          <View style={styles.missingSection}>
+            <Text style={styles.missingLabel}>
+              NEXT EVIDENCE
+            </Text>
+
+            <Text style={styles.missingText}>
+              {evidenceDetail}
+            </Text>
+          </View>
+        </View>
+
+        {/* Back */}
+        <Pressable
+          onPress={() => router.replace('/evidence-map')}
+          style={({ pressed }) => [
+            styles.button,
+            pressed && styles.buttonPressed,
+          ]}
+        >
+          <Text style={styles.buttonText}>
+            Back to Evidence Map
+          </Text>
+        </Pressable>
       </View>
-
-      <Pressable
-        style={styles.doneButton}
-        onPress={() => router.push('/evidence-map')}
-      >
-        <Text style={styles.doneButtonText}>
-          Back to Evidence Map →
-        </Text>
-      </Pressable>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8FAFC',
+    justifyContent: 'center',
   },
 
   content: {
     width: '100%',
-    maxWidth: 900,
+    maxWidth: 700,
     alignSelf: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 40,
-    paddingBottom: 64,
+    paddingHorizontal: 30,
+    paddingVertical: 28,
   },
 
-  back: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 28,
+  header: {
+    marginBottom: 22,
   },
 
   eyebrow: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    marginBottom: 10,
+    color: '#4F46E5',
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '800',
+    letterSpacing: 1.45,
+    marginBottom: 9,
   },
 
   title: {
     ...typography.title,
-    color: colors.textPrimary,
-    fontSize: 30,
-    lineHeight: 38,
-    marginBottom: 10,
+    color: '#0F172A',
+    fontSize: 32,
+    lineHeight: 40,
+    fontWeight: '700',
+    letterSpacing: -0.8,
+    maxWidth: 620,
   },
 
-  subtitle: {
-    color: colors.textSecondary,
-    fontSize: 15,
-    lineHeight: 23,
-    maxWidth: 700,
-    marginBottom: 28,
-  },
-
-  capabilityHeader: {
-    marginBottom: 18,
-  },
-
-  capabilityName: {
-    color: colors.textPrimary,
-    fontSize: 18,
+  capability: {
+    color: '#64748B',
+    fontSize: 13,
+    lineHeight: 19,
     fontWeight: '600',
+    marginTop: 8,
   },
 
-  changeCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 32,
+  resultCard: {
     flexDirection: 'row',
-    alignItems: 'stretch',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 21,
+    marginBottom: 14,
   },
 
-  changeColumn: {
+  resultColumn: {
     flex: 1,
   },
 
-  changeLabel: {
-    color: colors.textSecondary,
-    fontSize: 11,
+  resultLabel: {
+    color: '#94A3B8',
+    fontSize: 9,
+    lineHeight: 13,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: 6,
+  },
+
+  resultValue: {
+    color: '#1E293B',
+    fontSize: 20,
+    lineHeight: 27,
     fontWeight: '700',
-    letterSpacing: 0.8,
-    marginBottom: 9,
+    letterSpacing: -0.2,
   },
 
-  changeText: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 20,
-    marginTop: 12,
-    paddingRight: 12,
+  resultDivider: {
+    width: 1,
+    height: 42,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 24,
   },
 
-  arrow: {
-    width: 48,
+  rationaleCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    paddingHorizontal: 22,
+    paddingVertical: 20,
+    marginBottom: 14,
+  },
+
+  rationaleLabel: {
+    color: '#64748B',
+    fontSize: 9,
+    lineHeight: 13,
+    fontWeight: '800',
+    letterSpacing: 1.05,
+    marginBottom: 11,
+  },
+
+  rationaleText: {
+    color: '#1E293B',
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '500',
+    marginBottom: 17,
+  },
+
+  missingSection: {
+    borderTopWidth: 1,
+    borderTopColor: '#EEF2F6',
+    paddingTop: 14,
+  },
+
+  missingLabel: {
+    color: '#4F46E5',
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '800',
+    letterSpacing: 0.85,
+    marginBottom: 5,
+  },
+
+  missingText: {
+    color: '#64748B',
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '400',
+    maxWidth: 620,
+  },
+
+  button: {
+    minHeight: 52,
+    borderRadius: 12,
+    backgroundColor: '#4F46E5',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 22,
+    shadowColor: '#4F46E5',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 3,
   },
 
-  arrowText: {
-    color: colors.primary,
-    fontSize: 24,
-    fontWeight: '600',
+  buttonPressed: {
+    backgroundColor: '#4338CA',
+    transform: [{ scale: 0.99 }],
   },
 
-  sectionTitle: {
-    color: colors.textPrimary,
-    fontSize: 19,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-
-  evidenceCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    padding: 18,
-    marginBottom: 28,
-  },
-
-  evidenceText: {
-    color: colors.textSecondary,
+  buttonText: {
+    color: '#FFFFFF',
     fontSize: 14,
-    lineHeight: 22,
-  },
-
-  reasonCard: {
-    backgroundColor: colors.primaryLight,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    padding: 20,
-    marginBottom: 18,
-  },
-
-  reasonTitle: {
-    color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-
-  reasonText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 21,
-  },
-
-  convergenceCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    padding: 18,
-    marginBottom: 18,
-  },
-
-  convergenceText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 21,
-  },
-
-  boundaryCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    padding: 18,
-    marginBottom: 24,
-  },
-
-  boundaryLabel: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    marginBottom: 7,
-  },
-
-  boundaryText: {
-    color: colors.textSecondary,
-    fontSize: 13,
     lineHeight: 20,
-  },
-
-  doneButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-
-  doneButtonText: {
-    color: colors.surface,
-    fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

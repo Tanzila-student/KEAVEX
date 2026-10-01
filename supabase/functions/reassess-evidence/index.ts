@@ -244,7 +244,7 @@ Return exactly this structure:
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       geminiResponse = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=" +
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=" +
           GEMINI_API_KEY,
         {
           method: "POST",
@@ -451,3 +451,4 @@ Return exactly this structure:
     );
   }
 });
+

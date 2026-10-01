@@ -1,104 +1,194 @@
-import { ScrollView, View, Text, StyleSheet, Pressable } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+
+import { StatusBadge } from '../../components/StatusBadge';
 import { colors } from '../../constants/colors';
 import { typography } from '../../constants/typography';
-import { StatusBadge } from '../../components/StatusBadge';
 import { mockAnalysis } from '../constants/mockAnalysis';
+
+type Capability = (typeof mockAnalysis.capabilities)[number];
+
+const LIVE_DOCKER_STATUS = 'developing' as const;
 
 export default function CapabilityScreen() {
   const { name } = useLocalSearchParams<{ name?: string }>();
 
-  const capability =
-    mockAnalysis.capabilities.find((item) => item.name === name) ??
-    mockAnalysis.capabilities[0];
+  const baseCapability =
+    mockAnalysis.capabilities.find(
+      (item) => item.name === name,
+    ) ?? mockAnalysis.capabilities[0];
+
+  const capability: Capability =
+    baseCapability.name === 'Containerization (Docker)'
+      ? {
+          ...baseCapability,
+          status: LIVE_DOCKER_STATUS,
+        }
+      : baseCapability;
 
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
     >
-      <Pressable onPress={() => router.back()}>
-        <Text style={styles.back}>← Evidence Map</Text>
+      <Pressable
+        onPress={() => router.back()}
+        hitSlop={8}
+        style={styles.backButton}
+      >
+        <Text style={styles.backText}>
+          Evidence Map
+        </Text>
       </Pressable>
 
-      <Text style={styles.title}>{capability.name}</Text>
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>
+          CAPABILITY
+        </Text>
 
-      <StatusBadge status={capability.status} />
+        <Text style={styles.title}>
+          {capability.name}
+        </Text>
 
-      <Text style={styles.claim}>{capability.claim}</Text>
+        <StatusBadge status={capability.status} />
+      </View>
 
-      <SectionTitle title="What supports this?" />
+      <View style={styles.claimCard}>
+        <Text style={styles.cardLabel}>
+          CURRENT CLAIM
+        </Text>
 
-      <View style={styles.supportCard}>
-        {capability.supportedBy.map((evidence, index) => (
-          <View
-            key={`${evidence.source}-${index}`}
-            style={[
-              styles.evidenceItem,
-              index < capability.supportedBy.length - 1 &&
-                styles.itemSpacing,
-            ]}
-          >
-            <View style={styles.evidenceHeader}>
-              <Text style={styles.source}>
-                {evidence.source}
-              </Text>
+        <Text style={styles.claim}>
+          {capability.claim}
+        </Text>
 
-              <Text style={styles.strength}>
-                {evidence.strength} evidence
+        <Text style={styles.claimNote}>
+          The assessment reflects what the available evidence
+          currently supports.
+        </Text>
+      </View>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionLabel}>
+          EVIDENCE
+        </Text>
+
+        <Text style={styles.sectionTitle}>
+          What supports this claim?
+        </Text>
+      </View>
+
+      <View style={styles.evidenceCard}>
+        {capability.supportedBy.map(
+          (evidence, index) => (
+            <View
+              key={`${evidence.source}-${index}`}
+              style={[
+                styles.evidenceItem,
+                index < capability.supportedBy.length - 1 &&
+                  styles.evidenceItemSpacing,
+              ]}
+            >
+              <View style={styles.evidenceHeader}>
+                <Text style={styles.source}>
+                  {evidence.source}
+                </Text>
+
+                <Text style={styles.strength}>
+                  {evidence.strength}
+                </Text>
+              </View>
+
+              <Text style={styles.detail}>
+                {evidence.detail}
               </Text>
             </View>
+          ),
+        )}
+      </View>
 
-            <Text style={styles.detail}>
-              {evidence.detail}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionLabel}>
+          EVIDENCE BOUNDARY
+        </Text>
+
+        <Text style={styles.sectionTitle}>
+          What remains unproven?
+        </Text>
+      </View>
+
+      <View style={styles.unknownCard}>
+        {capability.unknowns.map((unknown, index) => (
+          <View
+            style={[
+              styles.unknownRow,
+              index < capability.unknowns.length - 1 &&
+                styles.unknownRowSpacing,
+            ]}
+            key={unknown}
+          >
+            <View style={styles.unknownDot} />
+
+            <Text style={styles.unknownText}>
+              {unknown}
             </Text>
           </View>
         ))}
       </View>
 
-      <SectionTitle title="What remains uncertain?" />
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionLabel}>
+          NEXT EVIDENCE
+        </Text>
 
-      <View style={styles.unknownCard}>
-        {capability.unknowns.map((unknown) => (
-          <View style={styles.bulletRow} key={unknown}>
-            <Text style={styles.bullet}>•</Text>
-            <Text style={styles.bulletText}>{unknown}</Text>
-          </View>
-        ))}
+        <Text style={styles.sectionTitle}>
+          What would strengthen this?
+        </Text>
       </View>
 
-      <SectionTitle title="What would strengthen this?" />
-
       <View style={styles.gapCard}>
-        <Text style={styles.gapTitle}>
-          {capability.evidenceGap.title}
-        </Text>
+        <View style={styles.gapAccent} />
 
-        <Text style={styles.gapDescription}>
-          {capability.evidenceGap.description}
-        </Text>
+        <View style={styles.gapContent}>
+          <Text style={styles.gapTitle}>
+            {capability.evidenceGap.title}
+          </Text>
 
-        <Text style={styles.whyLabel}>
-          Why it matters
-        </Text>
+          <Text style={styles.gapDescription}>
+            {capability.evidenceGap.description}
+          </Text>
 
-        <Text style={styles.whyText}>
-          {capability.evidenceGap.why_it_matters}
-        </Text>
+          <View style={styles.whyBlock}>
+            <Text style={styles.whyLabel}>
+              WHY IT MATTERS
+            </Text>
 
-        <View style={styles.taskDivider} />
+            <Text style={styles.whyText}>
+              {capability.evidenceGap.why_it_matters}
+            </Text>
+          </View>
 
-        <Text style={styles.taskLabel}>
-          Suggested evidence
-        </Text>
+          <View style={styles.taskBlock}>
+            <Text style={styles.taskLabel}>
+              DEMONSTRATION
+            </Text>
 
-        <Text style={styles.taskTitle}>
-          {capability.nextEvidence.task_title}
-        </Text>
+            <Text style={styles.taskTitle}>
+              {capability.nextEvidence.task_title}
+            </Text>
 
-        <Text style={styles.taskPrompt}>
-          {capability.nextEvidence.task_prompt}
-        </Text>
+            <Text style={styles.taskPrompt}>
+              {capability.nextEvidence.task_prompt}
+            </Text>
+          </View>
+        </View>
       </View>
 
       <Pressable
@@ -106,20 +196,26 @@ export default function CapabilityScreen() {
         onPress={() =>
           router.push({
             pathname: '/demonstrate',
-            params: { name: capability.name },
+            params: {
+              name: capability.name,
+            },
           })
         }
       >
         <Text style={styles.demonstrateText}>
-          Demonstrate
+          Demonstrate this capability
+        </Text>
+
+        <Text style={styles.buttonSubtext}>
+          Add evidence and reassess
         </Text>
       </Pressable>
+
+      <Text style={styles.footerNote}>
+        New evidence can change the assessment.
+      </Text>
     </ScrollView>
   );
-}
-
-function SectionTitle({ title }: { title: string }) {
-  return <Text style={styles.sectionTitle}>{title}</Text>;
 }
 
 const styles = StyleSheet.create({
@@ -132,83 +228,143 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 900,
     alignSelf: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 40,
+    paddingHorizontal: 24,
+    paddingTop: 24,
     paddingBottom: 56,
   },
 
-  back: {
+  backButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    marginBottom: 28,
+  },
+
+  backText: {
+    ...typography.body,
     color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '500',
+  },
+
+  header: {
     marginBottom: 28,
+  },
+
+  eyebrow: {
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '700',
+    letterSpacing: 1.3,
+    marginBottom: 8,
   },
 
   title: {
     ...typography.title,
     color: colors.textPrimary,
-    fontSize: 30,
-    lineHeight: 38,
+    fontSize: 29,
+    lineHeight: 37,
+    fontWeight: '700',
     marginBottom: 12,
   },
 
-  claim: {
+  claimCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    padding: 19,
+    marginBottom: 30,
+  },
+
+  cardLabel: {
     color: colors.textSecondary,
-    fontSize: 15,
-    lineHeight: 23,
-    marginTop: 14,
-    marginBottom: 32,
-    maxWidth: 720,
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 1,
+    marginBottom: 9,
+  },
+
+  claim: {
+    color: colors.textPrimary,
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: '500',
+    marginBottom: 10,
+  },
+
+  claimNote: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '400',
+  },
+
+  sectionHeader: {
+    marginBottom: 11,
+  },
+
+  sectionLabel: {
+    color: colors.textSecondary,
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 1,
+    marginBottom: 5,
   },
 
   sectionTitle: {
     color: colors.textPrimary,
     fontSize: 19,
+    lineHeight: 25,
     fontWeight: '600',
-    marginBottom: 12,
-    marginTop: 10,
   },
 
-  supportCard: {
+  evidenceCard: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 14,
     padding: 18,
-    marginBottom: 28,
+    marginBottom: 30,
   },
 
   evidenceItem: {
-    paddingBottom: 2,
+    minWidth: 0,
   },
 
-  itemSpacing: {
+  evidenceItemSpacing: {
+    paddingBottom: 18,
     marginBottom: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
 
   evidenceHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 6,
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 7,
   },
 
   source: {
     color: colors.textPrimary,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     textTransform: 'capitalize',
   },
 
   strength: {
     color: colors.textSecondary,
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '500',
+    textTransform: 'lowercase',
   },
 
   detail: {
     color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 21,
+    fontWeight: '400',
   },
 
   unknownCard: {
@@ -217,27 +373,34 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 14,
     padding: 18,
-    marginBottom: 28,
+    marginBottom: 30,
   },
 
-  bulletRow: {
+  unknownRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    minWidth: 0,
   },
 
-  bullet: {
-    color: colors.textSecondary,
-    fontSize: 18,
-    lineHeight: 21,
+  unknownRowSpacing: {
+    marginBottom: 13,
+  },
+
+  unknownDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: colors.textSecondary,
+    marginTop: 8,
     marginRight: 10,
   },
 
-  bulletText: {
+  unknownText: {
     flex: 1,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
     fontSize: 14,
     lineHeight: 21,
+    fontWeight: '400',
   },
 
   gapCard: {
@@ -245,73 +408,122 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 14,
-    padding: 20,
-    marginBottom: 24,
+    padding: 18,
+    marginBottom: 22,
+    flexDirection: 'row',
+  },
+
+  gapAccent: {
+    width: 3,
+    alignSelf: 'stretch',
+    minHeight: 70,
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+    marginRight: 13,
+  },
+
+  gapContent: {
+    flex: 1,
+    minWidth: 0,
   },
 
   gapTitle: {
     color: colors.textPrimary,
     fontSize: 17,
+    lineHeight: 23,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 7,
   },
 
   gapDescription: {
     color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 21,
-    marginBottom: 18,
+    fontWeight: '400',
+  },
+
+  whyBlock: {
+    marginTop: 17,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
 
   whyLabel: {
-    color: colors.textPrimary,
-    fontSize: 12,
+    color: colors.textSecondary,
+    fontSize: 10,
     fontWeight: '600',
+    letterSpacing: 0.9,
     marginBottom: 5,
   },
 
   whyText: {
     color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '400',
   },
 
-  taskDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: 18,
+  taskBlock: {
+    marginTop: 17,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
 
   taskLabel: {
     color: colors.primary,
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
-    marginBottom: 6,
+    letterSpacing: 0.9,
+    marginBottom: 5,
   },
 
   taskTitle: {
     color: colors.textPrimary,
-    fontSize: 15,
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: '600',
-    marginBottom: 6,
+    marginBottom: 5,
   },
 
   taskPrompt: {
     color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '400',
   },
 
   demonstrateButton: {
+    minHeight: 56,
     backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 15,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
   },
 
   demonstrateText: {
     color: colors.surface,
     fontSize: 15,
+    lineHeight: 20,
     fontWeight: '600',
+  },
+
+  buttonSubtext: {
+    color: colors.surface,
+    opacity: 0.75,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
+    fontWeight: '400',
+  },
+
+  footerNote: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: 12,
   },
 });

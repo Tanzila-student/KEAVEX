@@ -1,38 +1,56 @@
-﻿import { useState } from 'react';
-import {
-  ScrollView,
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  TextInput,
-  ActivityIndicator,
-} from 'react-native';
+﻿
 import { router } from 'expo-router';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+
 import { colors } from '../../constants/colors';
-import { typography } from '../../constants/typography';
 import { supabase } from '../../lib/supabase';
 import { isPro } from '../lib/purchases';
 
-// Free users get this many reassessments before the paywall
 const FREE_LIMIT = 1;
+const MIN_EVIDENCE_LENGTH = 50;
 
-const ANALYSIS_ID = '7799c856-8429-4e5a-b357-75c5d666d683';
-const DOCKER_CAPABILITY_ID = 'cdecbfdb-c4ca-467e-9267-dff5f68ce993';
+const ANALYSIS_ID =
+  '7799c856-8429-4e5a-b357-75c5d666d683';
+
+const DOCKER_CAPABILITY_ID =
+  'cdecbfdb-c4ca-467e-9267-dff5f68ce993';
 
 const capability = {
   name: 'Containerization (Docker)',
-  taskTitle: 'Design a production-ready Docker setup',
+
+  taskTitle:
+    'A Spring Boot container keeps restarting in production.',
+
   taskPrompt:
-    'Explain how you would containerize a Spring Boot application with PostgreSQL, including the Dockerfile, services, persistent database storage, health checks, and how you would verify the running containers.',
+    'How would you isolate the cause, diagnose the failure, and recover the service?',
 };
 
 export default function DemonstrateScreen() {
   const [response, setResponse] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [showEvidenceTip, setShowEvidenceTip] =
+    useState(false);
 
-  const canSubmit = response.trim().length > 0 && !isSubmitting;
+  const trimmedResponse = response.trim();
+  const characterCount = trimmedResponse.length;
+
+  const hasEnoughEvidence =
+    characterCount >= MIN_EVIDENCE_LENGTH;
+
+  const canSubmit =
+    hasEnoughEvidence &&
+    !isSubmitting &&
+    !error;
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -46,11 +64,16 @@ export default function DemonstrateScreen() {
       } = await supabase.auth.getSession();
 
       if (!session) {
-        throw new Error('Not signed in. Open /login and sign in first.');
+        throw new Error(
+          'Not signed in. Open /login and sign in first.',
+        );
       }
 
-      // REVENUECAT INTEGRATION: check Pro entitlement before AI reassessment
-      const used = Number(session.user.user_metadata?.free_reassessments_used ?? 0);
+      const used = Number(
+        session.user.user_metadata
+          ?.free_reassessments_used ?? 0,
+      );
+
       const pro = await isPro().catch(() => false);
 
       if (!pro && used >= FREE_LIMIT) {
@@ -59,43 +82,106 @@ export default function DemonstrateScreen() {
       }
 
       const { data, error: functionError } =
-        await supabase.functions.invoke('reassess-evidence', {
-          body: {
-            analysis_id: ANALYSIS_ID,
-            capability_id: DOCKER_CAPABILITY_ID,
-            user_response: response.trim(),
+        await supabase.functions.invoke(
+          'reassess-evidence',
+          {
+            body: {
+              analysis_id: ANALYSIS_ID,
+              capability_id:
+                DOCKER_CAPABILITY_ID,
+              user_response: trimmedResponse,
+            },
           },
-        });
+        );
+
+      // --------------------------------------------------
+      // Clean user-facing handling for backend errors.
+      // Expected temporary/quota errors are handled
+      // silently so React Native LogBox does not show
+      // a development "Console Error" popup.
+      // --------------------------------------------------
 
       if (functionError) {
-        console.error('INVOKE_ERROR', functionError);
+        const status =
+          functionError.context?.status;
 
+        if (status === 429) {
+          throw new Error(
+            'AI_QUOTA_EXCEEDED',
+          );
+        }
+
+        let backendError: any = null;
+
+        const errorContext =
+          functionError.context;
+
+        if (
+          errorContext &&
+          typeof errorContext.json === 'function'
+        ) {
+          try {
+            backendError =
+              await errorContext.json();
+          } catch {
+            backendError = null;
+          }
+        }
+
+        if (
+          backendError?.error ===
+          'AI_REASSESSMENT_QUOTA_EXCEEDED'
+        ) {
+          throw new Error(
+            'AI_QUOTA_EXCEEDED',
+          );
+        }
+
+        // Any temporary server / Edge Function /
+        // Gemini availability problem gets one
+        // clean product message.
+        if (
+          status &&
+          status >= 500
+        ) {
+          throw new Error(
+            'REASSESSMENT_TEMPORARILY_UNAVAILABLE',
+          );
+        }
+
+        // Never expose raw Edge Function errors.
         throw new Error(
-          functionError.message ||
-            'Failed to reach reassess-evidence Edge Function',
+          'REASSESSMENT_TEMPORARILY_UNAVAILABLE',
         );
       }
 
       if (!data) {
-        throw new Error('Empty response from reassess-evidence');
+        throw new Error(
+          'REASSESSMENT_TEMPORARILY_UNAVAILABLE',
+        );
       }
 
       if (data.error) {
-        const detail =
-          typeof data.error === 'string'
-            ? data.error
-            : JSON.stringify(data.error);
+        if (
+          data.error ===
+          'AI_REASSESSMENT_QUOTA_EXCEEDED'
+        ) {
+          throw new Error(
+            'AI_QUOTA_EXCEEDED',
+          );
+        }
 
-        const extra = data.details
-          ? ` - ${JSON.stringify(data.details)}`
-          : '';
-
-        throw new Error(`${detail}${extra}`);
+        throw new Error(
+          'REASSESSMENT_TEMPORARILY_UNAVAILABLE',
+        );
       }
 
       if (!pro) {
         await supabase.auth.updateUser({
-          data: { free_reassessments_used: used + 1 },
+          data: {
+            free_reassessments_used:
+              used + 1,
+          },
         });
       }
 
@@ -103,18 +189,49 @@ export default function DemonstrateScreen() {
         pathname: '/reassessment',
         params: {
           name: capability.name,
-          response: response.trim(),
-          reassessment: JSON.stringify(data),
+          response: trimmedResponse,
+          reassessment:
+            JSON.stringify(data),
         },
       });
     } catch (err) {
-      console.error(err);
+      // Expected product errors are rendered inside
+      // the KEAVEX UI instead of being logged with
+      // console.error, which would trigger React
+      // Native's development LogBox popup.
 
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Something went wrong while reassessing your evidence.',
-      );
+      if (
+        err instanceof Error &&
+        err.message ===
+          'AI_QUOTA_EXCEEDED'
+      ) {
+        setError(
+          'KEAVEX has temporarily reached its AI usage limit. Your evidence is safe. Try again later.',
+        );
+      } else if (
+        err instanceof Error &&
+        err.message ===
+          'REASSESSMENT_TEMPORARILY_UNAVAILABLE'
+      ) {
+        setError(
+          'Reassessment paused. Your evidence is safe. Try again later.',
+        );
+      } else if (
+        err instanceof Error &&
+        err.message.includes(
+          'Not signed in',
+        )
+      ) {
+        setError(
+          'Please sign in before continuing.',
+        );
+      } else {
+        // Never expose raw backend / Edge Function /
+        // Supabase / Gemini errors to the user.
+        setError(
+          'Reassessment paused. Your evidence is safe. Try again later.',
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -124,70 +241,286 @@ export default function DemonstrateScreen() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
     >
-      <Pressable onPress={() => router.back()} disabled={isSubmitting}>
-        <Text style={styles.back}>Back Evidence Map</Text>
+      {/* TOP NAVIGATION */}
+
+      <Pressable
+        onPress={() => router.back()}
+        disabled={isSubmitting}
+        hitSlop={8}
+        style={styles.backButton}
+      >
+        <Text style={styles.backText}>
+          ← Evidence Map
+        </Text>
       </Pressable>
 
-      <Text style={styles.eyebrow}>NEW EVIDENCE</Text>
+      {/* HEADER */}
 
-      <Text style={styles.title}>Demonstrate your capability</Text>
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>
+          NEW EVIDENCE
+        </Text>
 
-      <Text style={styles.subtitle}>
-        Give KEAVEX new evidence it can use to reassess this capability.
-      </Text>
+        <Text style={styles.title}>
+          Demonstrate your capability
+        </Text>
 
-      <View style={styles.taskCard}>
-        <Text style={styles.taskLabel}>PROVE THIS</Text>
+        <Text style={styles.subtitle}>
+          Add proof that can change what KEAVEX
+          can support.
+        </Text>
+      </View>
 
-        <Text style={styles.taskTitle}>
+      {/* CAPABILITY */}
+
+      <View style={styles.capabilityCard}>
+        <Text style={styles.cardLabel}>
+          CAPABILITY
+        </Text>
+
+        <Text style={styles.capabilityName}>
+          {capability.name}
+        </Text>
+      </View>
+
+      {/* GAP */}
+
+      <View style={styles.gapRow}>
+        <View style={styles.gapIndicator} />
+
+        <View style={styles.gapContent}>
+          <Text style={styles.gapLabel}>
+            CURRENT GAP
+          </Text>
+
+          <Text style={styles.gapText}>
+            Production container reasoning
+          </Text>
+        </View>
+      </View>
+
+      {/* CHALLENGE */}
+
+      <View style={styles.challengeSection}>
+        <Text style={styles.sectionLabel}>
+          YOUR CHALLENGE
+        </Text>
+
+        <Text style={styles.challengeTitle}>
           {capability.taskTitle}
         </Text>
 
-        <Text style={styles.taskPrompt}>
+        <Text style={styles.challengePrompt}>
           {capability.taskPrompt}
         </Text>
       </View>
 
-      <Text style={styles.inputLabel}>Your evidence</Text>
+      {/* EVIDENCE GUIDANCE */}
 
-      <TextInput
-        value={response}
-        onChangeText={setResponse}
-        placeholder="Explain your approach, reasoning, or solution..."
-        placeholderTextColor={colors.textSecondary}
-        multiline
-        textAlignVertical="top"
-        editable={!isSubmitting}
-        style={styles.input}
-      />
+      <View style={styles.evidenceTipWrapper}>
+        <Pressable
+          onPress={() =>
+            setShowEvidenceTip(
+              !showEvidenceTip,
+            )
+          }
+          disabled={isSubmitting}
+          style={styles.evidenceTipHeader}
+        >
+          <View style={styles.tipTitleRow}>
+            <Text style={styles.tipIcon}>
+              💡
+            </Text>
 
-      <Text style={styles.helper}>
-        KEAVEX evaluates the evidence itself - not your writing length.
-      </Text>
+            <Text style={styles.tipTitle}>
+              What strong evidence looks like
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.tipChevron,
+              showEvidenceTip &&
+                styles.tipChevronUp,
+            ]}
+          />
+        </Pressable>
+
+        {showEvidenceTip ? (
+          <>
+            {/* PREMIUM TOP MESSAGE */}
+
+            <View style={styles.brainBanner}>
+              <View style={styles.brainBannerIcon}>
+                <Text style={styles.brainBannerIconText}>
+                  ✦
+                </Text>
+              </View>
+
+              <Text style={styles.brainBannerText}>
+                No Bots. Just Brains.
+              </Text>
+            </View>
+
+            {/* EXISTING GUIDANCE */}
+
+            <View style={styles.tipContent}>
+              <Text style={styles.tipIntro}>
+                Strong evidence shows your reasoning,
+                not just the final answer.
+              </Text>
+
+              <View style={styles.tipPoint}>
+                <View style={styles.tipBullet} />
+
+                <Text style={styles.tipPointText}>
+                  What you would check first
+                </Text>
+              </View>
+
+              <View style={styles.tipPoint}>
+                <View style={styles.tipBullet} />
+
+                <Text style={styles.tipPointText}>
+                  Why you would check it
+                </Text>
+              </View>
+
+              <View style={styles.tipPoint}>
+                <View style={styles.tipBullet} />
+
+                <Text style={styles.tipPointText}>
+                  What evidence would confirm the cause
+                </Text>
+              </View>
+
+              <View style={styles.tipPoint}>
+                <View style={styles.tipBullet} />
+
+                <Text style={styles.tipPointText}>
+                  How you would verify the fix
+                </Text>
+              </View>
+
+              <Text style={styles.tipFooter}>
+                You don't need the perfect answer.
+                Show your reasoning.
+              </Text>
+            </View>
+          </>
+        ) : null}
+      </View>
+
+      {/* RESPONSE */}
+
+      <View style={styles.responseSection}>
+        <View style={styles.responseHeader}>
+          <Text style={styles.inputLabel}>
+            Your evidence
+          </Text>
+
+          <Text style={styles.inputHint}>
+            Explain your reasoning.
+          </Text>
+        </View>
+
+        <TextInput
+          value={response}
+          onChangeText={setResponse}
+          placeholder="Start with how you would investigate..."
+          placeholderTextColor="#64748B"
+          multiline
+          textAlignVertical="top"
+          editable={!isSubmitting}
+          style={styles.input}
+        />
+
+        <View style={styles.evidenceMeta}>
+          <Text
+            style={[
+              styles.helper,
+              hasEnoughEvidence &&
+                styles.helperReady,
+            ]}
+          >
+            {hasEnoughEvidence
+              ? 'Enough detail to reassess your evidence.'
+              : 'Add at least 50 characters so KEAVEX can reassess the evidence.'}
+          </Text>
+
+          <Text
+            style={[
+              styles.characterCount,
+              hasEnoughEvidence &&
+                styles.characterCountReady,
+            ]}
+          >
+            {characterCount}/50
+          </Text>
+        </View>
+      </View>
+
+      {/* ERROR */}
 
       {error ? (
         <View style={styles.errorCard}>
-          <Text style={styles.errorText}>{error}</Text>
+          <View style={styles.errorIcon}>
+            <Text style={styles.errorIconText}>
+              !
+            </Text>
+          </View>
+
+          <View style={styles.errorContent}>
+            <Text style={styles.errorLabel}>
+              TEMPORARILY UNAVAILABLE
+            </Text>
+
+            <Text style={styles.errorText}>
+              {error}
+            </Text>
+          </View>
         </View>
       ) : null}
+
+      {/* ACTION */}
 
       <Pressable
         style={[
           styles.submitButton,
-          !canSubmit && styles.submitButtonDisabled,
+          !canSubmit &&
+            styles.submitButtonDisabled,
         ]}
         onPress={handleSubmit}
         disabled={!canSubmit}
       >
         {isSubmitting ? (
-          <ActivityIndicator color={colors.surface} />
+          <View style={styles.submitInner}>
+            <ActivityIndicator
+              color={colors.surface}
+            />
+
+            <Text style={styles.loadingText}>
+              Reassessing evidence…
+            </Text>
+          </View>
+        ) : error ? (
+          <Text style={styles.submitTextDisabled}>
+            Try again later
+          </Text>
         ) : (
           <Text style={styles.submitText}>
-            Submit evidence Back’
+            Reassess my evidence
           </Text>
         )}
       </Pressable>
+
+      <Text style={styles.footerNote}>
+        Your response becomes new evidence for
+        this capability.
+      </Text>
     </ScrollView>
   );
 }
@@ -195,140 +528,474 @@ export default function DemonstrateScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8FAFC',
   },
 
   content: {
     width: '100%',
     maxWidth: 900,
     alignSelf: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 40,
-    paddingBottom: 64,
+    paddingHorizontal: 22,
+    paddingTop: 18,
+    paddingBottom: 60,
   },
 
-  back: {
-    color: colors.textSecondary,
+  /* TOP NAVIGATION */
+
+  backButton: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 999,
+    paddingHorizontal: 17,
+    paddingVertical: 11,
+    marginBottom: 38,
+    justifyContent: 'center',
+  },
+
+  backText: {
+    color: '#475569',
     fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 28,
+    fontWeight: '600',
+  },
+
+  /* HEADER */
+
+  header: {
+    marginBottom: 30,
   },
 
   eyebrow: {
     color: colors.primary,
-    fontSize: 12,
+    fontSize: 10,
+    lineHeight: 14,
     fontWeight: '700',
-    letterSpacing: 1.5,
-    marginBottom: 10,
+    letterSpacing: 1.3,
+    marginBottom: 9,
   },
 
   title: {
-    ...typography.title,
-    color: colors.textPrimary,
+    color: '#0F172A',
     fontSize: 30,
     lineHeight: 38,
-    marginBottom: 10,
+    fontWeight: '700',
+    letterSpacing: -0.6,
+    marginBottom: 9,
   },
 
   subtitle: {
-    color: colors.textSecondary,
+    color: '#64748B',
+    fontSize: 15,
+    lineHeight: 23,
+    maxWidth: 600,
+  },
+
+  /* CAPABILITY */
+
+  capabilityCard: {
+    backgroundColor: '#EEF3FF',
+    borderWidth: 1,
+    borderColor: '#DCE6FF',
+    borderRadius: 16,
+    paddingHorizontal: 17,
+    paddingVertical: 16,
+    marginBottom: 20,
+  },
+
+  cardLabel: {
+    color: '#64748B',
+    fontSize: 9,
+    lineHeight: 13,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+
+  capabilityName: {
+    color: '#172554',
+    fontSize: 17,
+    lineHeight: 23,
+    fontWeight: '600',
+  },
+
+  /* GAP */
+
+  gapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 34,
+    paddingLeft: 4,
+  },
+
+  gapIndicator: {
+    width: 3,
+    height: 34,
+    borderRadius: 3,
+    backgroundColor: '#F59E0B',
+    marginRight: 12,
+  },
+
+  gapContent: {
+    flex: 1,
+  },
+
+  gapLabel: {
+    color: '#94A3B8',
+    fontSize: 9,
+    lineHeight: 13,
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+
+  gapText: {
+    color: '#475569',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+
+  /* CHALLENGE */
+
+  challengeSection: {
+    marginBottom: 22,
+    paddingHorizontal: 2,
+  },
+
+  sectionLabel: {
+    color: '#94A3B8',
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '700',
+    letterSpacing: 1.1,
+    marginBottom: 9,
+  },
+
+  challengeTitle: {
+    color: '#0F172A',
+    fontSize: 20,
+    lineHeight: 28,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+    marginBottom: 8,
+    maxWidth: 720,
+  },
+
+  challengePrompt: {
+    color: '#64748B',
     fontSize: 15,
     lineHeight: 23,
     maxWidth: 700,
-    marginBottom: 28,
   },
 
-  taskCard: {
-    backgroundColor: colors.primaryLight,
+  /* EVIDENCE GUIDANCE */
+
+  evidenceTipWrapper: {
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: '#E2E8F0',
     borderRadius: 14,
-    padding: 20,
     marginBottom: 28,
+    overflow: 'hidden',
   },
 
-  taskLabel: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    marginBottom: 8,
+  evidenceTipHeader: {
+    minHeight: 50,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
 
-  taskTitle: {
-    color: colors.textPrimary,
-    fontSize: 17,
-    fontWeight: '600',
-    lineHeight: 23,
-    marginBottom: 8,
+  tipTitleRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 
-  taskPrompt: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 21,
+  tipIcon: {
+    fontSize: 16,
+    marginRight: 9,
   },
 
-  inputLabel: {
-    color: colors.textPrimary,
+  tipTitle: {
+    color: '#334155',
     fontSize: 13,
+    lineHeight: 19,
     fontWeight: '600',
-    marginBottom: 8,
   },
 
-  input: {
-    minHeight: 180,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    padding: 16,
-    color: colors.textPrimary,
+  /* REAL GEOMETRIC CHEVRON */
+
+  tipChevron: {
+    width: 9,
+    height: 9,
+    borderRightWidth: 1.8,
+    borderBottomWidth: 1.8,
+    borderColor: '#64748B',
+    transform: [{ rotate: '45deg' }],
+    marginLeft: 10,
+    marginRight: 3,
+    marginTop: -4,
+  },
+
+  tipChevronUp: {
+    transform: [{ rotate: '225deg' }],
+    marginTop: 4,
+  },
+
+  /* PREMIUM BRAIN BANNER */
+
+  brainBanner: {
+    minHeight: 48,
+    backgroundColor: '#EEF2FF',
+    borderTopWidth: 1,
+    borderTopColor: '#E0E7FF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E7FF',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  brainBannerIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: '#E0E7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+
+  brainBannerIconText: {
+    color: '#4F46E5',
     fontSize: 15,
-    lineHeight: 22,
-  },
-
-  helper: {
-    color: colors.textSecondary,
-    fontSize: 12,
     lineHeight: 18,
-    marginTop: 10,
-    marginBottom: 12,
+    fontWeight: '800',
   },
 
-  errorCard: {
-    backgroundColor: colors.conflictBg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
+  brainBannerText: {
+    color: '#3730A3',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '800',
+    letterSpacing: -0.1,
   },
 
-  errorText: {
-    color: colors.error,
-    fontSize: 13,
+  tipContent: {
+    borderTopWidth: 0,
+    paddingHorizontal: 15,
+    paddingTop: 13,
+    paddingBottom: 15,
+  },
+
+  tipIntro: {
+    color: '#475569',
+    fontSize: 12,
+    lineHeight: 19,
+    marginBottom: 11,
+  },
+
+  tipPoint: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 7,
+  },
+
+  tipBullet: {
+    width: 5,
+    height: 5,
+    borderRadius: 5,
+    backgroundColor: '#4F46E5',
+    marginTop: 7,
+    marginRight: 9,
+  },
+
+  tipPointText: {
+    flex: 1,
+    color: '#475569',
+    fontSize: 12,
     lineHeight: 19,
   },
 
-  submitButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    paddingVertical: 15,
+  tipFooter: {
+    color: '#64748B',
+    fontSize: 11,
+    lineHeight: 17,
+    fontStyle: 'italic',
+    marginTop: 5,
+  },
+
+  /* RESPONSE */
+
+  responseSection: {
+    marginBottom: 21,
+  },
+
+  responseHeader: {
+    marginBottom: 10,
+  },
+
+  inputLabel: {
+    color: '#0F172A',
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: '600',
+    marginBottom: 3,
+  },
+
+  inputHint: {
+    color: '#94A3B8',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
+  input: {
+    minHeight: 210,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#DCE3EC',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    color: '#0F172A',
+    fontSize: 15,
+    lineHeight: 23,
+    marginBottom: 9,
+  },
+
+  evidenceMeta: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+
+  helper: {
+    flex: 1,
+    color: '#64748B',
+    fontSize: 11,
+    lineHeight: 17,
+  },
+
+  helperReady: {
+    color: '#475569',
+  },
+
+  characterCount: {
+    color: '#94A3B8',
+    fontSize: 11,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+
+  characterCountReady: {
+    color: '#4F46E5',
+  },
+
+  /* PREMIUM TEMPORARY ERROR STATE */
+
+  errorCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    marginBottom: 26,
+  },
+
+  errorIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: '#FEF3C7',
     alignItems: 'center',
-    minHeight: 50,
     justifyContent: 'center',
+    marginRight: 11,
+  },
+
+  errorIconText: {
+    color: '#B45309',
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+
+  errorContent: {
+    flex: 1,
+    paddingTop: 1,
+  },
+
+  errorLabel: {
+    color: '#92400E',
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+
+  errorText: {
+    color: '#78350F',
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '500',
+  },
+
+  /* ACTION */
+
+  submitButton: {
+    minHeight: 55,
+    borderRadius: 14,
+    backgroundColor: '#4F46E5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
 
   submitButtonDisabled: {
-    opacity: 0.45,
+    backgroundColor: '#CBD5E1',
+    opacity: 1,
+  },
+
+  submitInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
   },
 
   submitText: {
     color: colors.surface,
     fontSize: 15,
+    fontWeight: '700',
+  },
+
+  submitTextDisabled: {
+    color: '#64748B',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  loadingText: {
+    color: colors.surface,
+    fontSize: 15,
     fontWeight: '600',
   },
+
+  footerNote: {
+    color: '#94A3B8',
+    textAlign: 'center',
+    fontSize: 11,
+    lineHeight: 17,
+    marginTop: 13,
+  },
 });
-
-

@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+
 import { colors } from '../../constants/colors';
 import { typography } from '../../constants/typography';
 
 const stages = [
-  'Reading resume',
-  'Extracting evidence',
-  'Evaluating claims',
-  'Mapping gaps',
+  'Finding claims',
+  'Checking evidence',
+  'Testing support',
+  'Finding gaps',
 ];
 
 export default function ProcessingScreen() {
@@ -40,54 +41,67 @@ export default function ProcessingScreen() {
         <Text style={styles.eyebrow}>KEAVEX</Text>
 
         <Text style={styles.title}>
-          Analyzing your evidence
+          What does your evidence support?
         </Text>
 
         <Text style={styles.subtitle}>
-          We are evaluating what your available evidence can actually support.
+          Building your evidence boundary.
         </Text>
 
-        <View style={styles.stages}>
+        <View style={styles.process}>
           {stages.map((stage, index) => {
             const isActive = index === activeStage;
             const isComplete = index < activeStage;
+            const isLast = index === stages.length - 1;
 
             return (
-              <View style={styles.stageRow} key={stage}>
-                <View
-                  style={[
-                    styles.indicator,
-                    isActive && styles.indicatorActive,
-                    isComplete && styles.indicatorComplete,
-                  ]}
-                >
-                  <Text
+              <View key={stage} style={styles.stageWrapper}>
+                <View style={styles.stageRow}>
+                  <View
                     style={[
-                      styles.indicatorText,
-                      (isActive || isComplete) &&
-                        styles.indicatorTextActive,
+                      styles.indicator,
+                      isActive && styles.indicatorActive,
+                      isComplete && styles.indicatorComplete,
                     ]}
                   >
-                    {isComplete ? '✓' : index + 1}
+                    {isComplete ? (
+                      <Text style={styles.check}>✓</Text>
+                    ) : (
+                      <View
+                        style={[
+                          styles.dot,
+                          isActive && styles.dotActive,
+                        ]}
+                      />
+                    )}
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.stageText,
+                      isActive && styles.stageTextActive,
+                      isComplete && styles.stageTextComplete,
+                    ]}
+                  >
+                    {stage}
                   </Text>
                 </View>
 
-                <Text
-                  style={[
-                    styles.stageText,
-                    isActive && styles.stageTextActive,
-                    isComplete && styles.stageTextComplete,
-                  ]}
-                >
-                  {stage}
-                </Text>
+                {!isLast && (
+                  <View
+                    style={[
+                      styles.connector,
+                      isComplete && styles.connectorComplete,
+                    ]}
+                  />
+                )}
               </View>
             );
           })}
         </View>
 
-        <Text style={styles.note}>
-          This may take a few seconds.
+        <Text style={styles.footer}>
+          Evidence Map next.
         </Text>
       </View>
     </View>
@@ -97,7 +111,7 @@ export default function ProcessingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8FAFC',
     justifyContent: 'center',
   },
 
@@ -110,87 +124,121 @@ const styles = StyleSheet.create({
 
   eyebrow: {
     color: colors.primary,
-    fontSize: 13,
+    fontSize: 10,
+    lineHeight: 14,
     fontWeight: '700',
-    letterSpacing: 2,
-    marginBottom: 18,
+    letterSpacing: 1.4,
+    marginBottom: 16,
   },
 
   title: {
     ...typography.title,
-    color: colors.textPrimary,
-    fontSize: 32,
-    lineHeight: 40,
-    marginBottom: 10,
+    color: '#0F172A',
+    fontSize: 30,
+    lineHeight: 38,
+    fontWeight: '700',
+    letterSpacing: -0.6,
+    marginBottom: 7,
+    maxWidth: 560,
   },
 
   subtitle: {
-    ...typography.body,
-    color: colors.textSecondary,
-    lineHeight: 24,
-    maxWidth: 540,
-    marginBottom: 32,
+    color: '#64748B',
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: 34,
   },
 
-  stages: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    padding: 20,
+  process: {
+    paddingLeft: 2,
+  },
+
+  stageWrapper: {
+    position: 'relative',
   },
 
   stageRow: {
+    minHeight: 43,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
   },
 
   indicator: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: colors.insufficientBg,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 13,
+    zIndex: 2,
   },
 
   indicatorActive: {
-    backgroundColor: colors.primaryLight,
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
   },
 
   indicatorComplete: {
-    backgroundColor: colors.strongBg,
+    backgroundColor: '#ECFDF5',
   },
 
-  indicatorText: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '600',
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 5,
+    backgroundColor: '#94A3B8',
   },
 
-  indicatorTextActive: {
-    color: colors.primary,
+  dotActive: {
+    width: 6,
+    height: 6,
+    backgroundColor: '#4F46E5',
+  },
+
+  check: {
+    color: '#059669',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
   },
 
   stageText: {
-    color: colors.textSecondary,
-    fontSize: 15,
+    color: '#94A3B8',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
   },
 
   stageTextActive: {
-    color: colors.textPrimary,
-    fontWeight: '600',
+    color: '#0F172A',
+    fontWeight: '700',
   },
 
   stageTextComplete: {
-    color: colors.textPrimary,
+    color: '#475569',
+    fontWeight: '600',
   },
 
-  note: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    marginTop: 16,
+  connector: {
+    position: 'absolute',
+    left: 11.5,
+    top: 27,
+    width: 1,
+    height: 16,
+    backgroundColor: '#E2E8F0',
+    zIndex: 1,
+  },
+
+  connectorComplete: {
+    backgroundColor: '#A7F3D0',
+  },
+
+  footer: {
+    color: '#94A3B8',
+    fontSize: 11,
+    lineHeight: 17,
+    marginTop: 29,
   },
 });
